@@ -98,6 +98,105 @@ Route::get('/order/ajax/{orderId}', [OrderController::class, 'getOrderDetailHtml
 // Blog Frontend
 Route::get('/blog', [\App\Http\Controllers\PostController::class, 'index'])->name('blog.index');
 Route::get('/blog/{slug}', [\App\Http\Controllers\PostController::class, 'show'])->name('blog.show');
+
+Route::get('/admin/notifications/check', function () {
+    $lastOrderId = request()->input('last_order_id');
+    $lastCommentId = request()->input('last_comment_id');
+    $lastReviewId = request()->input('last_review_id');
+    
+    // Default initial sync if not provided (e.g. first load)
+    $isInitial = ($lastOrderId === null && $lastCommentId === null && $lastReviewId === null);
+    
+    $response = [
+        'orders' => [],
+        'comments' => [],
+        'reviews' => [],
+        'last_ids' => [
+            'order' => $lastOrderId ?? 0,
+            'comment' => $lastCommentId ?? 0,
+            'review' => $lastReviewId ?? 0
+        ]
+    ];
+
+    // --- ORDERS ---
+    $orderQuery = \App\Models\Order::query();
+    if ($lastOrderId) {
+        $orderQuery->where('id', '>', $lastOrderId);
+    } else {
+        $orderQuery->where('status', 'new')->orderBy('id', 'desc')->take(5);
+    }
+    $orders = $orderQuery->get();
+    
+    foreach ($orders as $order) {
+        $response['orders'][] = [
+            'id' => $order->id,
+            'code' => $order->id, // Or order number if you have one
+            'customer' => $order->shipping_name ?? 'Khách lẻ',
+            'total' => number_format($order->total, 0, ',', '.') . ' đ',
+            'time' => $order->created_at->format('H:i d/m/Y'),
+            'type' => 'order'
+        ];
+        if ($order->id > $response['last_ids']['order']) {
+            $response['last_ids']['order'] = $order->id;
+        }
+    }
+    
+    // --- COMMENTS ---
+    $commentQuery = \App\Models\PostComment::query();
+    if ($lastCommentId) {
+        $commentQuery->where('id', '>', $lastCommentId);
+    } else {
+        $commentQuery->where('status', 'pending')->orderBy('id', 'desc')->take(5);
+    }
+    $comments = $commentQuery->with('post:id,title')->get();
+    
+    foreach ($comments as $comment) {
+        $response['comments'][] = [
+            'id' => $comment->id,
+            'author' => $comment->name,
+            'post' => \Illuminate\Support\Str::limit($comment->post->title ?? 'Bài viết', 30),
+            'content' => \Illuminate\Support\Str::limit($comment->content, 50),
+            'time' => $comment->created_at->format('H:i d/m/Y'),
+            'type' => 'comment'
+        ];
+        if ($comment->id > $response['last_ids']['comment']) {
+            $response['last_ids']['comment'] = $comment->id;
+        }
+    }
+
+    // --- REVIEWS ---
+    $reviewQuery = \App\Models\Review::query();
+    if ($lastReviewId) {
+        $reviewQuery->where('id', '>', $lastReviewId);
+    } else {
+        $reviewQuery->where('status', 'pending')->orderBy('id', 'desc')->take(5);
+    }
+    $reviews = $reviewQuery->with('product:id,name')->get();
+    
+    foreach ($reviews as $review) {
+        $response['reviews'][] = [
+            'id' => $review->id,
+            'author' => $review->reviewer_name,
+            'product' => \Illuminate\Support\Str::limit($review->product->name ?? 'Sản phẩm', 30),
+            'rating' => $review->rating,
+            'content' => \Illuminate\Support\Str::limit($review->content, 50),
+            'time' => $review->created_at->format('H:i d/m/Y'),
+            'type' => 'review'
+        ];
+        if ($review->id > $response['last_ids']['review']) {
+            $response['last_ids']['review'] = $review->id;
+        }
+    }
+
+    // If initial load, reverse the collections to show oldest to newest (so notifications appear in order)
+    // But actually newest first is fine for initial list.
+    
+    // Update global activity log if we found newer stuff (Sync mechanism)
+    // We can skip this because the PHP file handles the check.
+    
+    return response()->json($response);
+
+})->middleware(['web', 'auth', 'admin']);
 Route::post('/blog/{slug}/comments', [\App\Http\Controllers\PostController::class, 'storeComment'])->name('blog.comments.store');
 
 // Blog category aliases without /blog prefix
@@ -195,8 +294,10 @@ Route::middleware(['web','auth','admin'])->group(function () {
     Route::get('/admin/settings/shipping', [AdminController::class, 'settingsShipping'])->name('admin.settings.shipping');
     Route::post('/admin/settings/shipping', [AdminController::class, 'settingsShippingSave'])->name('admin.settings.shipping.save');
     Route::get('/admin/settings/profile', [AdminController::class, 'settingsProfile'])->name('admin.settings.profile');
-    Route::post('/admin/settings/profile', [AdminController::class, 'settingsProfileSave'])->name('admin.settings.profile.save');
-    Route::post('/admin/settings/profile/avatar', [AdminController::class, 'uploadAvatar'])->name('admin.settings.profile.avatar');
+Route::post('/admin/settings/profile', [AdminController::class, 'settingsProfileSave'])->name('admin.settings.profile.save');
+Route::post('/admin/settings/profile/avatar', [AdminController::class, 'uploadAvatar'])->name('admin.settings.profile.avatar');
+Route::post('/admin/settings/profile/notification-sound', [AdminController::class, 'uploadNotificationSound'])->name('admin.settings.profile.notification_sound');
+Route::get('/admin/notifications/preferences', [AdminController::class, 'notificationPreferences'])->middleware(['web','auth','admin'])->name('admin.notifications.preferences');
     Route::post('/admin/settings/general/favicon', [AdminController::class, 'uploadFavicon'])->name('admin.settings.general.favicon');
     Route::post('/admin/settings/general/social-image', [AdminController::class, 'uploadSocialImage'])->name('admin.settings.general.social_image');
     Route::post('/admin/settings/menus', [AdminController::class, 'settingsMenusSave'])->name('admin.settings.menus.save');

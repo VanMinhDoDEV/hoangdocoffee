@@ -43,10 +43,29 @@
                 <a href="{{ route('lang.switch', 'vi') }}" class="px-2 py-1 text-xs font-semibold {{ app()->getLocale() == 'vi' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700' }} rounded-md transition-all">VI</a>
                 <a href="{{ route('lang.switch', 'en') }}" class="px-2 py-1 text-xs font-semibold {{ app()->getLocale() == 'en' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700' }} rounded-md transition-all">EN</a>
             </div>
-            <button class="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
-                <span class="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full"></span>
-            </button>
+            <div class="relative">
+                <button id="admin-notif-btn" class="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                    <span id="admin-notif-badge" class="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center hidden">0</span>
+                </button>
+                
+                <!-- Notification Dropdown -->
+                <div id="admin-notif-dropdown" class="absolute right-0 top-full mt-2 w-80 bg-white rounded-lg shadow-xl overflow-hidden z-[100] hidden border border-gray-100">
+                    <div class="p-3 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                        <h3 class="text-sm font-semibold text-gray-800">Thông báo mới</h3>
+                        <button id="admin-notif-clear" class="text-xs text-blue-600 hover:text-blue-800 font-medium">Đã xem hết</button>
+                    </div>
+                    <div id="admin-notif-list" class="max-h-80 overflow-y-auto">
+                        <div class="p-8 text-center text-gray-400 text-sm flex flex-col items-center">
+                            <i class="far fa-bell-slash text-2xl mb-2 opacity-50"></i>
+                            <p>Chưa có thông báo mới</p>
+                        </div>
+                    </div>
+                    <div class="p-2 border-t border-gray-100 text-center">
+                        <a href="{{ route('admin.orders') }}" class="text-xs text-gray-500 hover:text-blue-600 font-medium block py-1">Xem tất cả đơn hàng</a>
+                    </div>
+                </div>
+            </div>
             <div class="relative">
                 <button id="topbarUserToggle" type="button" class="flex items-center gap-3 pl-4 border-l border-gray-200 cursor-pointer">
                     <div class="text-right hidden md:block">

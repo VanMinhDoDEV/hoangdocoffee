@@ -185,6 +185,24 @@
                                             <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                                         </label>
                                     </div>
+                                    <div class="pb-6 border-t border-gray-200 pt-6">
+                                        <div class="flex items-center justify-between mb-3">
+                                            <div>
+                                                <p class="text-sm font-medium text-gray-900">Thông báo thời gian thực</p>
+                                                <p class="text-xs text-gray-600 mt-0.5">Bật/tắt và chọn âm thanh thông báo</p>
+                                            </div>
+                                            <label class="relative inline-flex items-center cursor-pointer">
+                                                <input type="checkbox" name="notifications_enabled" value="1" class="sr-only peer" {{ !empty($notifSettings['enabled']) ? 'checked' : '' }}>
+                                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                            </label>
+                                        </div>
+                                        <div class="flex items-center gap-4">
+                                            <input type="file" id="notif-sound-input" accept="audio/mpeg,audio/mp3" class="hidden">
+                                            <button type="button" id="notif-sound-upload-btn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">Tải âm thanh (MP3)</button>
+                                            <span id="notif-sound-current" class="text-xs text-gray-500">{{ $notifSettings['sound_url'] ? basename($notifSettings['sound_url']) : 'Chưa chọn file' }}</span>
+                                            <button type="button" id="notif-sound-preview-btn" class="px-3 py-2 text-xs font-medium text-indigo-600 bg-indigo-50 border border-indigo-200 rounded hover:bg-indigo-100 transition-colors">Nghe thử</button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -266,6 +284,52 @@
             e.target.value = ''; // Reset input
         });
     });
+
+    // Notification sound upload and preview
+    (function(){
+        const uploadBtn = document.getElementById('notif-sound-upload-btn');
+        const fileInput = document.getElementById('notif-sound-input');
+        const current = document.getElementById('notif-sound-current');
+        const previewBtn = document.getElementById('notif-sound-preview-btn');
+        let currentUrl = {!! json_encode($notifSettings['sound_url'] ?? null) !!};
+        if (uploadBtn && fileInput) {
+            uploadBtn.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', function(e){
+                const file = e.target.files[0];
+                if (!file) return;
+                const fd = new FormData();
+                fd.append('sound', file);
+                fd.append('_token', '{{ csrf_token() }}');
+                uploadBtn.disabled = true;
+                fetch('{{ route("admin.settings.profile.notification_sound") }}', {
+                    method: 'POST',
+                    body: fd,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                }).then(r => r.json())
+                 .then(data => {
+                    if (data.status === 'success') {
+                        current.textContent = file.name;
+                        currentUrl = data.url;
+                        showToast('success', 'Thành công', data.message || 'Đã cập nhật âm thanh thông báo');
+                    } else {
+                        showToast('error', 'Lỗi', data.message || 'Tải âm thanh thất bại');
+                    }
+                 })
+                 .catch(() => showToast('error', 'Lỗi', 'Tải âm thanh thất bại'))
+                 .finally(() => {
+                    uploadBtn.disabled = false;
+                    fileInput.value = '';
+                 });
+            });
+        }
+        if (previewBtn) {
+            previewBtn.addEventListener('click', () => {
+                if (!currentUrl) return;
+                const audio = new Audio(currentUrl);
+                audio.play().catch(() => {});
+            });
+        }
+    })();
 </script>
 @endsection
 

@@ -491,6 +491,12 @@ class CheckoutController extends Controller
                 Auth::login($user);
             }
 
+            // Update Cache for Polling Optimization
+            \Illuminate\Support\Facades\Cache::forever('latest_order_id', $order->id);
+            
+            // SUPER FAST POLLING: Update activity log
+            $this->updateActivityLog('order', $order->id);
+
             return $order;
         });
         } catch (\Illuminate\Validation\ValidationException $e) {

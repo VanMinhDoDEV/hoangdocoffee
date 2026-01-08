@@ -2780,7 +2780,19 @@ class AdminController extends Controller
     {
         $settings = $this->readSettings();
         $adminLanguage = $settings['admin']['language'] ?? 'vi';
-        return view('admin.settings.profile', ['adminLanguage' => $adminLanguage]);
+        $uid = auth()->id();
+        $notifSettings = [
+            'enabled' => false,
+            'sound_url' => null,
+        ];
+        if (isset($settings['admin']['notifications']) && is_array($settings['admin']['notifications'])) {
+            $userNotif = $settings['admin']['notifications'][$uid] ?? null;
+            if (is_array($userNotif)) {
+                $notifSettings['enabled'] = (bool)($userNotif['enabled'] ?? false);
+                $notifSettings['sound_url'] = $userNotif['sound_url'] ?? null;
+            }
+        }
+        return view('admin.settings.profile', ['adminLanguage' => $adminLanguage, 'notifSettings' => $notifSettings]);
     }
 
     public function uploadAvatar(Request $request)
@@ -2874,6 +2886,53 @@ class AdminController extends Controller
         return response()->json(['status' => 'error', 'message' => 'Không tìm thấy file'], 400);
     }
 
+    public function uploadNotificationSound(Request $request)
+    {
+        $request->validate([
+            'sound' => ['required', 'file', 'mimetypes:audio/mpeg,audio/mp3', 'max:5120'],
+        ]);
+        $uid = auth()->id();
+        $settings = $this->readSettings();
+        if ($request->hasFile('sound')) {
+            $file = $request->file('sound');
+            $original = $file->getClientOriginalName();
+            $name = pathinfo($original, PATHINFO_FILENAME);
+            $filename = \Illuminate\Support\Str::slug($name).'-'.$uid.'.mp3';
+            if (\Illuminate\Support\Facades\Storage::disk('public')->exists('notifications/'.$filename)) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete('notifications/'.$filename);
+            }
+            $path = $file->storeAs('notifications', $filename, 'public');
+            $url = '/storage/'.$path;
+            $settings['admin'] = $settings['admin'] ?? [];
+            $settings['admin']['notifications'] = $settings['admin']['notifications'] ?? [];
+            $settings['admin']['notifications'][$uid] = array_merge($settings['admin']['notifications'][$uid] ?? [], [
+                'sound_url' => $url,
+            ]);
+            $this->writeSettings($settings);
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Tải âm thanh thông báo thành công',
+                'url' => $url,
+            ]);
+        }
+        return response()->json(['status' => 'error', 'message' => 'Không tìm thấy file'], 400);
+    }
+
+    public function notificationPreferences()
+    {
+        $uid = auth()->id();
+        $settings = $this->readSettings();
+        $enabled = false;
+        $url = null;
+        if (isset($settings['admin']['notifications'][$uid])) {
+            $enabled = (bool)($settings['admin']['notifications'][$uid]['enabled'] ?? false);
+            $url = $settings['admin']['notifications'][$uid]['sound_url'] ?? null;
+        }
+        return response()->json([
+            'enabled' => $enabled,
+            'sound_url' => $url,
+        ]);
+    }
     public function settingsProfileSave(Request $request)
     {
         $user = auth()->user();
@@ -2888,6 +2947,7 @@ class AdminController extends Controller
             'new_password' => ['nullable', 'confirmed', \Illuminate\Validation\Rules\Password::defaults()],
             'two_factor_enabled' => ['nullable', 'boolean'],
             'language' => ['nullable', 'in:vi,en,ja'],
+            'notifications_enabled' => ['nullable', 'boolean'],
         ]);
 
         $user->name = $data['name'];
@@ -2918,6 +2978,15 @@ class AdminController extends Controller
             $this->writeSettings($settings);
             session(['locale' => $request->input('language')]);
         }
+
+        // Save notification preferences per user
+        $settings = $this->readSettings();
+        $settings['admin'] = $settings['admin'] ?? [];
+        $settings['admin']['notifications'] = $settings['admin']['notifications'] ?? [];
+        $settings['admin']['notifications'][$user->id] = array_merge($settings['admin']['notifications'][$user->id] ?? [], [
+            'enabled' => (bool)($data['notifications_enabled'] ?? false),
+        ]);
+        $this->writeSettings($settings);
 
         return back()->with('success', 'Cập nhật hồ sơ thành công');
     }

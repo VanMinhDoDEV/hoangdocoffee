@@ -266,6 +266,9 @@ class PostController extends Controller
             'user_agent' => $request->userAgent(),
         ]);
 
+        // Realtime notification update
+        $this->updateActivityLog('comment', $comment->id);
+
         return back()->with('success', 'Bình luận của bạn đã được gửi và đang chờ duyệt.');
     }
 }

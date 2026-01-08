@@ -319,7 +319,7 @@ class ProductController extends Controller
             'parent_id' => ['nullable', 'exists:reviews,id'],
         ]);
 
-        \App\Models\Review::create([
+        $review = \App\Models\Review::create([
             'product_id' => $product->id,
             'parent_id' => $data['parent_id'] ?? null,
             'user_id' => auth()->id(),
@@ -331,6 +331,9 @@ class ProductController extends Controller
             'status' => 'pending', // Replies also need approval? Let's assume yes.
             'is_verified_purchase' => false,
         ]);
+
+        // Realtime notification update
+        $this->updateActivityLog('review', $review->id);
         
         $message = $request->has('parent_id') ? 'Đã gửi phản hồi, vui lòng chờ duyệt.' : 'Đã gửi đánh giá, vui lòng chờ duyệt.';
         return redirect()->route('sanpham.show', $slug)->with('success', $message);
